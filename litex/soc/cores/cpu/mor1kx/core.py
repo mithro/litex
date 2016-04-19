@@ -4,17 +4,54 @@ from litex.gen import *
 
 from litex.soc.interconnect import wishbone
 
+_mor1k_dbg_layout = [
+    ('rst', 1),
+    ('adr', 32),
+    ('stb', 1),
+    ('dat', 32),
+    ('we', 1),
+    ('dat', 32),
+    ('ack', 1),
+    ('stall', 1),
+    ('bp', 1),
+]
 
 class MOR1KX(Module):
-    def __init__(self, platform, reset_pc):
+    def __init__(self, platform, reset_pc, debug=False):
         self.ibus = i = wishbone.Interface()
         self.dbus = d = wishbone.Interface()
         self.interrupt = Signal(32)
 
         ###
+        clk = ClockSignal()
+        rst = ResetSignal()
+        cpu_rst = Signal()
 
         i_adr_o = Signal(32)
         d_adr_o = Signal(32)
+
+        extra_kw = {}
+        if not debug:
+            self.comb += cpu_rst.eq(rst)
+        else:
+            self.debug = debug = Record(_mor1k_dbg_layout)
+
+            self.comb += [
+               cpu_rst.eq(rst | debug.rst),
+            ]
+
+            extra_kw.update(
+                p_FEATURE_DEBUGUNIT="ENABLED",
+                i_du_addr_i=debug.adr[:16],
+                i_du_stb_i=debug.stb,
+                i_du_dat_i=debug.dat,
+                i_du_we_i=debug.we,
+                o_du_dat_o=debug.dat,
+                o_du_ack_o=debug.ack,
+                i_du_stall_i=debug.stall,
+                o_du_stall_o=debug.bp,
+                )
+
         self.specials += Instance("mor1kx",
                                   p_FEATURE_INSTRUCTIONCACHE="ENABLED",
                                   p_OPTION_ICACHE_BLOCK_WIDTH=4,
@@ -39,9 +76,10 @@ class MOR1KX(Module):
                                   p_OPTION_RESET_PC=reset_pc,
                                   p_IBUS_WB_TYPE="B3_REGISTERED_FEEDBACK",
                                   p_DBUS_WB_TYPE="B3_REGISTERED_FEEDBACK",
+                                  p_OPTION_RF_NUM_SHADOW_GPR=1,
 
-                                  i_clk=ClockSignal(),
-                                  i_rst=ResetSignal(),
+                                  i_clk=clk,
+                                  i_rst=cpu_rst,
 
                                   i_irq_i=self.interrupt,
 
@@ -69,12 +107,9 @@ class MOR1KX(Module):
                                   i_dwbm_dat_i=d.dat_r,
                                   i_dwbm_ack_i=d.ack,
                                   i_dwbm_err_i=d.err,
-                                  i_dwbm_rty_i=0)
+                                  i_dwbm_rty_i=0,
 
-        self.comb += [
-            self.ibus.adr.eq(i_adr_o[2:]),
-            self.dbus.adr.eq(d_adr_o[2:])
-        ]
+                                  **extra_kw)
 
         # add Verilog sources
         vdir = os.path.join(

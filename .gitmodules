@@ -10,3 +10,6 @@
 [submodule "litex/soc/cores/cpu/picorv32/verilog"]
 	path = litex/soc/cores/cpu/picorv32/verilog
 	url = https://github.com/cliffordwolf/picorv32
+[submodule "litex/soc/cores/jtag/adv_debug_sys/verilog"]
+	path = litex/soc/cores/jtag/adv_debug_sys/verilog
+	url = https://github.com/olofk/adv_debug_sys

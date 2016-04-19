@@ -43,7 +43,8 @@ class SoCCore(Module):
                 csr_data_width=8, csr_address_width=14,
                 with_uart=True, uart_baudrate=115200,
                 ident="",
-                with_timer=True):
+                with_timer=True,
+                debug=True):
         self.platform = platform
         self.clk_freq = clk_freq
 
@@ -73,15 +74,20 @@ class SoCCore(Module):
 
         if cpu_type is not None:
             if cpu_type == "lm32":
-                self.add_cpu_or_bridge(lm32.LM32(platform, self.cpu_reset_address))
+                cpu = lm32.LM32(platform, self.cpu_reset_address)
             elif cpu_type == "or1k":
-                self.add_cpu_or_bridge(mor1kx.MOR1KX(platform, self.cpu_reset_address))
+                cpu = mor1kx.MOR1KX(platform, self.cpu_reset_address, debug=debug)
             elif cpu_type == "riscv32":
-                self.add_cpu_or_bridge(picorv32.PicoRV32(platform, self.cpu_reset_address))
+                cpu = picorv32.PicoRV32(platform, self.cpu_reset_address)
             else:
                 raise ValueError("Unsupported CPU type: {}".format(cpu_type))
+            self.add_cpu_or_bridge(cpu)
             self.add_wb_master(self.cpu_or_bridge.ibus)
             self.add_wb_master(self.cpu_or_bridge.dbus)
+            if debug:
+                from litex.soc.cores.jtag.adv_debug_sys import core
+                self.submodules.debug = core.AdvancedDebugSystem(platform, cpu)
+                self.add_wb_master(self.debug.wb)
 
         if integrated_rom_size:
             self.submodules.rom = wishbone.SRAM(integrated_rom_size, read_only=True)
