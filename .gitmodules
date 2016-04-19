@@ -13,3 +13,6 @@
 [submodule "litex/soc/cores/jtag/adv_debug_sys/verilog"]
 	path = litex/soc/cores/jtag/adv_debug_sys/verilog
 	url = https://github.com/olofk/adv_debug_sys
+[submodule "litex/soc/cores/jtag/wrapper/verilator/verilog"]
+	path = litex/soc/cores/jtag/wrapper/verilator/verilog-old
+	url = https://github.com/rdiez/jtag_dpi.git

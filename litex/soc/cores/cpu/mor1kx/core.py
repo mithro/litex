@@ -5,15 +5,15 @@ from litex.gen import *
 from litex.soc.interconnect import wishbone
 
 _mor1k_dbg_layout = [
-    ('rst', 1),
-    ('adr', 32),
-    ('stb', 1),
-    ('dat', 32),
-    ('we', 1),
-    ('dat', 32),
     ('ack', 1),
-    ('stall', 1),
+    ('adr', 32),
     ('bp', 1),
+    ('dat_ctod', 32),
+    ('dat_dtoc', 32),
+    ('rst', 1),
+    ('stall', 1),
+    ('stb', 1),
+    ('we', 1),
 ]
 
 class MOR1KX(Module):
@@ -43,12 +43,12 @@ class MOR1KX(Module):
             extra_kw.update(
                 p_FEATURE_DEBUGUNIT="ENABLED",
                 i_du_addr_i=debug.adr[:16],
-                i_du_stb_i=debug.stb,
-                i_du_dat_i=debug.dat,
-                i_du_we_i=debug.we,
-                o_du_dat_o=debug.dat,
-                o_du_ack_o=debug.ack,
+                i_du_dat_i=debug.dat_dtoc,
                 i_du_stall_i=debug.stall,
+                i_du_stb_i=debug.stb,
+                i_du_we_i=debug.we,
+                o_du_ack_o=debug.ack,
+                o_du_dat_o=debug.dat_ctod,
                 o_du_stall_o=debug.bp,
                 )
 
@@ -110,6 +110,11 @@ class MOR1KX(Module):
                                   i_dwbm_rty_i=0,
 
                                   **extra_kw)
+
+        self.comb += [
+            self.ibus.adr.eq(i_adr_o[2:]),
+            self.dbus.adr.eq(d_adr_o[2:])
+        ]
 
         # add Verilog sources
         vdir = os.path.join(

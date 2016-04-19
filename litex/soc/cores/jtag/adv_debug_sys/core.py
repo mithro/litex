@@ -7,7 +7,7 @@ from litex.soc.cores.jtag import interface
 
 
 class AdvancedDebugSystem(Module):
-    def __init__(self, platform, cpu):
+    def __init__(self, platform, cpu, jtag):
         # Currently we only support the mor1kx processor
 
         # Enable the debug interface on the processor
@@ -21,39 +21,26 @@ class AdvancedDebugSystem(Module):
             wb.adr.eq(wb_adr_o[2:]),
         ]
 
-        # JTAG interface
-        self.jtag = j = interface.Extended()
-
+        # JTAG TAP interface
         self.specials += Instance(
             "adbg_top",
+            # CPU Interface
             i_cpu0_clk_i=clk,
-            o_cpu0_rst_o=cpu.debug.rst,
+            i_cpu0_ack_i=cpu.debug.ack,
+            i_cpu0_bp_i=cpu.debug.bp,
+            i_cpu0_data_i=cpu.debug.dat_ctod,
             o_cpu0_addr_o=cpu.debug.adr,
-            o_cpu0_data_o=cpu.debug.dat,
+            o_cpu0_data_o=cpu.debug.dat_dtoc,
+            o_cpu0_rst_o=cpu.debug.rst,
+            o_cpu0_stall_o=cpu.debug.stall,
             o_cpu0_stb_o=cpu.debug.stb,
             o_cpu0_we_o=cpu.debug.we,
-            i_cpu0_data_i=cpu.debug.dat,
-            i_cpu0_ack_i=cpu.debug.ack,
-            o_cpu0_stall_o=cpu.debug.stall,
-            i_cpu0_bp_i=cpu.debug.bp,
-
-            # TAP interface
-            i_tck_i=j.tck,
-            i_tdi_i=j.tdi,
-            o_tdo_o=j.tdo,
-            i_rst_i=j.trst,
-            i_capture_dr_i=j.capture,
-            i_shift_dr_i=j.shift,
-            i_pause_dr_i=j.pause,
-            i_update_dr_i=j.update,
-            i_debug_select_i=j.tms,
 
             # Wishbone debug master
             i_wb_clk_i=clk,
             i_wb_dat_i=wb.dat_r,
             i_wb_ack_i=wb.ack,
             i_wb_err_i=wb.err,
-
             o_wb_adr_o=wb_adr_o,
             o_wb_dat_o=wb.dat_w,
             o_wb_sel_o=wb.sel,
@@ -62,30 +49,21 @@ class AdvancedDebugSystem(Module):
             o_wb_we_o=wb.we,
             o_wb_cti_o=wb.cti,
             o_wb_bte_o=wb.bte,
-        )
 
-        self.specials += Instance(
-            "xilinx_internal_jtag",
-            o_tck_o=j.tck,
-            i_debug_tdo_i=j.tdo,
-            o_tdi_o=j.tdi,
-            o_test_logic_reset_o=j.trst,
-            o_run_test_idle_o=j.idle,
-            o_shift_dr_o=j.shift,
-            o_capture_dr_o=j.capture,
-            o_pause_dr_o=j.pause,
-            o_update_dr_o=j.update,
-            o_debug_select_o=j.tms,
+            # JTAG TAP
+            i_tck_i=jtag.tap.tck,
+            i_tdi_i=jtag.tap.tdi,
+            o_tdo_o=jtag.tap.tdo,
+            i_rst_i=jtag.tap.reset,
+            i_capture_dr_i=jtag.tap.capture,
+            i_shift_dr_i=jtag.tap.shift,
+            i_pause_dr_i=jtag.tap.pause,
+            i_update_dr_i=jtag.tap.update,
+            i_debug_select_i=jtag.tap.select,
         )
 
         vdir = os.path.join(
             os.path.abspath(os.path.dirname(__file__)),
             "verilog", "Hardware", "adv_dbg_if",
-            "rtl", "verilog")
-        platform.add_source_dir(vdir)
-
-        vdir = os.path.join(
-            os.path.abspath(os.path.dirname(__file__)),
-            "verilog", "Hardware", "xilinx_internal_jtag",
             "rtl", "verilog")
         platform.add_source_dir(vdir)

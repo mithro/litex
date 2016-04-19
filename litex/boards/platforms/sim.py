@@ -38,6 +38,13 @@ _io = [
         Subsignal("g", SimPins(8)),
         Subsignal("b", SimPins(8)),
     ),
+    ("jtag", 0,
+        Subsignal("tms", SimPins(1)),
+        Subsignal("tck", SimPins(1)),
+        Subsignal("trst", SimPins(1)),
+        Subsignal("tdi", SimPins(1)),
+        Subsignal("tdo", SimPins(1)),
+    ),
 ]
 
 

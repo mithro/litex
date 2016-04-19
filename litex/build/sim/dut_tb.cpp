@@ -33,6 +33,10 @@
 #define WITH_VGA
 #endif
 
+#ifdef WITH_JTAG
+#include "jtagServer.h"
+#endif
+
 #define MAX(a,b) (((a)>(b))?(a):(b))
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
@@ -453,6 +457,15 @@ int main(int argc, char **argv, char **env)
 #ifdef WITH_VGA
 	if(vga_init(&s)) return 1;
 #endif
+#ifdef WITH_JTAG
+	VerilatorJtagServer* jtag = new VerilatorJtagServer(10);
+        jtag->init_jtag_server(5555);
+        uint64_t t = 0;
+
+        JTAG_TMS = 0;
+        JTAG_TDI = 0;
+        JTAG_TCK = 0;
+#endif
 
 	s.run = true;
 	while(s.run) {
@@ -469,6 +482,10 @@ int main(int argc, char **argv, char **env)
 			vga_service(&s);
 #endif
 		}
+#ifdef WITH_JTAG
+		jtag->doJTAG(t, &JTAG_TMS, &JTAG_TDI, &JTAG_TCK, JTAG_TDO);
+		t++;
+#endif
 	}
 	s.end = clock();
 

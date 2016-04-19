@@ -44,7 +44,8 @@ class SoCCore(Module):
                 with_uart=True, uart_baudrate=115200,
                 ident="",
                 with_timer=True,
-                debug=True):
+                jtag=None,
+                debug=False):
         self.platform = platform
         self.clk_freq = clk_freq
 
@@ -85,8 +86,10 @@ class SoCCore(Module):
             self.add_wb_master(self.cpu_or_bridge.ibus)
             self.add_wb_master(self.cpu_or_bridge.dbus)
             if debug:
+                assert jtag is not None, "Need JTAG for debug."
+                self.submodules.jtag = jtag
                 from litex.soc.cores.jtag.adv_debug_sys import core
-                self.submodules.debug = core.AdvancedDebugSystem(platform, cpu)
+                self.submodules.debug = core.AdvancedDebugSystem(platform, cpu, jtag)
                 self.add_wb_master(self.debug.wb)
 
         if integrated_rom_size:
