@@ -20,6 +20,7 @@ export PATH=$CONDA_DIR/bin:$PATH
 )
 conda install binutils-lm32-elf
 conda install gcc-lm32-elf
+conda install verilator
 
 # Install litex
 echo ""
@@ -30,4 +31,5 @@ echo "---------------------------"
 	python setup.py install
 )
 
-pip install git://github.com/enjoy-digital/litedram.git
+pip install -e git+git://github.com/enjoy-digital/litedram.git#egg=litedram
+pip install -e git+git://github.com/enjoy-digital/liteeth.git#egg=liteeth
