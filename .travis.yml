@@ -1,0 +1,16 @@
+language: python
+python:
+  - "3.3"
+  - "3.4"
+  - "3.5"
+
+# Don't do CI for WIP branches
+branches:
+  except:
+    - /^WIP-.*$/
+
+sudo: false
+
+script:
+  - python setup.py install
+
