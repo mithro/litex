@@ -6,6 +6,8 @@ import sys
 from setuptools import setup
 from setuptools import find_packages
 
+import versioneer
+
 def check_submodules(basedir):
     try:
         modules = open(os.path.join(basedir, ".gitmodules")).read()
@@ -29,7 +31,6 @@ def check_submodules(basedir):
         submodule_errors += check_submodules(fullpath)
     return submodule_errors
 
-
 if sys.version_info[:3] < (3, 3):
     raise SystemExit("You need Python 3.3+")
 
@@ -45,7 +46,8 @@ git submodule foreach git submodule update --recursive --init
 
 setup(
     name="litex",
-    version="0.1",
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     description="Python tools to design FPGA cores and SoCs",
     long_description=open("README").read(),
     author="Florent Kermarrec",
