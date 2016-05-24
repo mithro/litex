@@ -61,3 +61,6 @@ ENV/
 # litex specific ignores
 *.vcd
 outgoing
+test_sim/Miniconda3-*
+test_sim/conda
+test_sim/soc_*
