@@ -25,12 +25,12 @@ class CommPCIeLinux:
     def read(self, addr, length=None):
         data = []
         length_int = 1 if length is None else length
-         for i in range(length_int):
+        for i in range(length_int):
             self.mmap.seek(addr + 4*i)
             value = int.from_bytes(self.mmap.read(4), "big")
             if self.debug:
                 print("RD {:08X} @ {:08X}".format(data, addr + 4*i))
-             if length is None:
+            if length is None:
                 return value
             data.append(value)
         return data
