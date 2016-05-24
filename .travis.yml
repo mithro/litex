@@ -10,6 +10,10 @@ branches:
     - /^WIP-.*$/
 
 sudo: false
+addons:
+  apt:
+    packages:
+    - libsdl-dev
 
 setup:
   - git fetch --unshallow && git fetch --tags
@@ -22,3 +26,7 @@ script:
   - litex_server --help
   - litex_client --help || true # FIXME: AttributeError: module 'litex.soc.tools.remote.litex_client' has no attribute 'main'
   - mkmscimg --help
+  # Check the sim test
+  - cd test_sim
+  - ./setup.sh
+  # FIXME: ./run.sh
