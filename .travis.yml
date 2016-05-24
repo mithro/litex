@@ -17,3 +17,8 @@ setup:
 script:
   - python setup.py test
   - python setup.py install
+  # Check the utils run
+  - litex_term --help
+  - litex_server --help
+  - litex_client --help || true # FIXME: AttributeError: module 'litex.soc.tools.remote.litex_client' has no attribute 'main'
+  - mkmscimg --help
