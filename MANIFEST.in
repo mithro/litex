@@ -1,5 +1,6 @@
 graft litex/build/sim
 graft litex/soc/software
+recursive-exclude litex/soc/software *.py
 graft litex/soc/cores/cpu/lm32/verilog
 graft litex/soc/cores/cpu/mor1kx/verilog
 graft litex/soc/cores/cpu/picorv32/verilog
