@@ -11,6 +11,9 @@ branches:
 
 sudo: false
 
+setup:
+  - git fetch --unshallow && git fetch --tags
+
 script:
   - python setup.py install
 
