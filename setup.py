@@ -8,6 +8,7 @@ from setuptools import find_packages
 
 import versioneer
 
+
 def check_submodules(basedir):
     try:
         modules = open(os.path.join(basedir, ".gitmodules")).read()
@@ -58,7 +59,7 @@ setup(
     platforms=["Any"],
     keywords="HDL ASIC FPGA hardware design",
     classifiers=[
-        "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+        "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",  # noqa
         "Environment :: Console",
         "Development Status :: Beta",
         "Intended Audience :: Developers",
@@ -67,6 +68,7 @@ setup(
         "Programming Language :: Python",
     ],
     packages=find_packages(),
+    setup_requires=['setuptools-pep8'],
     install_requires=["pyserial"],
     include_package_data=True,
     entry_points={
