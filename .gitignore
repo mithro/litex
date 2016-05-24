@@ -64,3 +64,4 @@ outgoing
 test_sim/Miniconda3-*
 test_sim/conda
 test_sim/soc_*
+test_sim/src
