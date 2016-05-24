@@ -8,6 +8,7 @@ from setuptools import find_packages
 
 import versioneer
 
+# --
 
 def check_submodules(basedir):
     try:
@@ -44,6 +45,8 @@ Please run:
 git submodule update --recursive --init
 git submodule foreach git submodule update --recursive --init
 """.format("\n * ".join([""]+submodule_errors)))
+
+# --
 
 setup(
     name="litex",
