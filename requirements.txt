@@ -1,1 +1,3 @@
-pyserial
+--index-url https://pypi.python.org/simple/
+
+-e .
