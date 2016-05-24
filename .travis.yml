@@ -15,5 +15,5 @@ setup:
   - git fetch --unshallow && git fetch --tags
 
 script:
+  - python setup.py test
   - python setup.py install
-
