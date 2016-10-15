@@ -46,6 +46,8 @@ def _printconstant(node):
     if node.signed:
         return (str(node.nbits) + "'sd" + str(2**node.nbits + node.value),
                 True)
+    elif getattr(node, 'format', None) == 'binary':
+        return str(node.nbits) + "'b" + "{:0{n}b}".format(node.value, n=node.nbits), False
     else:
         return str(node.nbits) + "'d" + str(node.value), False
 
