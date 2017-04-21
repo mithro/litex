@@ -1,0 +1,34 @@
+language: python
+python:
+  - "3.3"
+#  - "3.4"
+#  - "3.5"
+
+# Don't do CI for WIP branches
+branches:
+  except:
+    - /^WIP-.*$/
+
+sudo: false
+addons:
+  apt:
+    packages:
+    - libsdl-dev
+
+setup:
+  - git fetch --unshallow && git fetch --tags
+  - git describe
+
+script:
+  - python setup.py test
+  - python setup.py install
+  - python setup.py pep8 || true
+  # Check the utils run
+  - litex_term --help
+  - litex_server --help
+  - litex_client --help || true # FIXME: AttributeError: module 'litex.soc.tools.remote.litex_client' has no attribute 'main'
+  - mkmscimg --help
+  # Check the sim test
+  - cd test_sim
+  - ./setup.sh
+  # FIXME: ./run.sh
