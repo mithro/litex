@@ -477,6 +477,88 @@ static void boot_sequence(void)
 	}
 }
 
+int checkcpu(void);
+#if defined (__or1k__)
+int checkcpu(void)
+{
+	unsigned long upr = mfspr(SPR_UPR);
+	unsigned long vr = mfspr(SPR_VR);
+	unsigned long iccfgr = mfspr(SPR_ICCFGR);
+	unsigned long dccfgr = mfspr(SPR_DCCFGR);
+	unsigned long immucfgr = mfspr(SPR_IMMUCFGR);
+	unsigned long dmmucfgr = mfspr(SPR_DMMUCFGR);
+	unsigned long cpucfgr = mfspr(SPR_CPUCFGR);
+	unsigned int ver = (vr & SPR_VR_VER) >> 24;
+	unsigned int rev = vr & SPR_VR_REV;
+	unsigned int block_size;
+	unsigned int ways;
+	unsigned int sets;
+	printf("CPU:   OpenRISC-%x00 (rev %d) @ %d MHz\n",
+		ver, rev, 0);
+	if (upr & SPR_UPR_DCP) {
+		block_size = (dccfgr & SPR_DCCFGR_CBS) ? 32 : 16;
+		ways = 1 << (dccfgr & SPR_DCCFGR_NCW);
+		printf("       D-Cache: %d bytes, %d bytes/line, %d way(s)\n",
+		       0, block_size, ways);
+	} else {
+		printf("       D-Cache: no\n");
+	}
+	if (upr & SPR_UPR_ICP) {
+		block_size = (iccfgr & SPR_ICCFGR_CBS) ? 32 : 16;
+		ways = 1 << (iccfgr & SPR_ICCFGR_NCW);
+		printf("       I-Cache: %d bytes, %d bytes/line, %d way(s)\n",
+		       0, block_size, ways);
+	} else {
+		printf("       I-Cache: no\n");
+	}
+	if (upr & SPR_UPR_DMP) {
+		sets = 1 << ((dmmucfgr & SPR_DMMUCFGR_NTS) >> 2);
+		ways = (dmmucfgr & SPR_DMMUCFGR_NTW) + 1;
+		printf("       DMMU: %d sets, %d way(s)\n",
+		       sets, ways);
+	} else {
+		printf("       DMMU: no\n");
+	}
+	if (upr & SPR_UPR_IMP) {
+		sets = 1 << ((immucfgr & SPR_IMMUCFGR_NTS) >> 2);
+		ways = (immucfgr & SPR_IMMUCFGR_NTW) + 1;
+		printf("       IMMU: %d sets, %d way(s)\n",
+		       sets, ways);
+	} else {
+		printf("       IMMU: no\n");
+	}
+	printf("       MAC unit: %s\n",
+		(upr & SPR_UPR_MP) ? "yes" : "no");
+	printf("       Debug unit: %s\n",
+		(upr & SPR_UPR_DUP) ? "yes" : "no");
+	printf("       Performance counters: %s\n",
+		(upr & SPR_UPR_PCUP) ? "yes" : "no");
+	printf("       Power management: %s\n",
+		(upr & SPR_UPR_PMP) ? "yes" : "no");
+	printf("       Interrupt controller: %s\n",
+		(upr & SPR_UPR_PICP) ? "yes" : "no");
+	printf("       Timer: %s\n",
+		(upr & SPR_UPR_TTP) ? "yes" : "no");
+	printf("       Custom unit(s): %s\n",
+		(upr & SPR_UPR_CUP) ? "yes" : "no");
+	printf("       Supported instructions:\n");
+	printf("           ORBIS32: %s\n",
+		(cpucfgr & SPR_CPUCFGR_OB32S) ? "yes" : "no");
+	printf("           ORBIS64: %s\n",
+		(cpucfgr & SPR_CPUCFGR_OB64S) ? "yes" : "no");
+	printf("           ORFPX32: %s\n",
+		(cpucfgr & SPR_CPUCFGR_OF32S) ? "yes" : "no");
+	printf("           ORFPX64: %s\n",
+		(cpucfgr & SPR_CPUCFGR_OF64S) ? "yes" : "no");
+	return 0;
+}
+#else
+int checkcpu(void)
+{
+	return 0;
+}
+#endif
+
 int main(int i, char **c)
 {
 	char buffer[64];
@@ -485,6 +567,9 @@ int main(int i, char **c)
 	irq_setmask(0);
 	irq_setie(1);
 	uart_init();
+
+	checkcpu();
+
 	printf("\nLiteX SoC BIOS ");
 #ifdef __lm32__
 	printf("(lm32)\n");
