@@ -18,12 +18,12 @@ extern void boot_helper(unsigned int r1, unsigned int r2, unsigned int r3, unsig
 
 static void __attribute__((noreturn)) boot(unsigned int r1, unsigned int r2, unsigned int r3, unsigned int addr)
 {
-	printf("Executing booted program.\n");
+	printf("Executing booted program at 0x%08x\n", addr + 0x100);
 	uart_sync();
 	irq_setmask(0);
 	irq_setie(0);
 	flush_cpu_icache();
-	boot_helper(r1, r2, r3, addr);
+	boot_helper(r1, r2, r3, addr + 0x100);
 	while(1);
 }
 
