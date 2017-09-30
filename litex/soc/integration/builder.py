@@ -71,7 +71,7 @@ class Builder:
         variables_contents = []
         def define(k, v):
             variables_contents.append("{}={}\n".format(k, _makefile_escape(v)))
-        for k, v in cpu_interface.get_cpu_mak(cpu_type):
+        for k, v in cpu_interface.get_cpu_mak(self.soc.cpu_or_bridge):
             define(k, v)
         define("SOC_DIRECTORY", soc_directory)
         variables_contents.append("export BUILDINC_DIRECTORY\n")
@@ -84,7 +84,7 @@ class Builder:
 
         write_to_file(
             os.path.join(generated_dir, "output_format.ld"),
-            cpu_interface.get_linker_output_format(cpu_type))
+            cpu_interface.get_linker_output_format(self.soc.cpu_or_bridge))
         write_to_file(
             os.path.join(generated_dir, "regions.ld"),
             cpu_interface.get_linker_regions(memory_regions))

@@ -4,59 +4,34 @@ from litex.gen import *
 
 from litex.soc.interconnect.csr import CSRStatus
 
-cpu_endianness = {
-    "lm32": "big",
-    "or1k": "big",
-    "riscv32": "little"
-}
-
-def get_cpu_mak(cpu):
+def get_cpu_mak(cpu_or_bridge):
+    print(cpu_or_bridge)
+    # Figure out if we should use clang or gcc
     clang = os.getenv("CLANG", "")
     if clang != "":
         clang = bool(int(clang))
     else:
-        clang = None
+        if cpu_or_bridge.cpu_type == "or1k":
+            clang = True
+        else:
+            clang = False
 
-    if cpu == "lm32":
-        assert not clang, "lm32 not supported with clang."
-        triple = "lm32-elf"
-        cpuflags = "-mbarrel-shift-enabled -mmultiply-enabled -mdivide-enabled -msign-extend-enabled"
-        clang = False
-    elif cpu == "or1k":
-        # Default to CLANG unless told otherwise
-        if clang is None:
-           clang = True
-
-        triple = "or1k-elf"
-        cpuflags = "-mhard-mul -mhard-div -mror"
-        if clang:
-            triple = "or1k-linux"
-            cpuflags += "-mffl1 -maddc"
-    elif cpu == "riscv32":
-        assert not clang, "riscv32 not supported with clang."
-        triple = "riscv32-unknown-elf"
-        cpuflags = "-mno-save-restore"
-        clang = False
+    if clang:
+        compiler = "clang"
     else:
-        raise ValueError("Unsupported CPU type: "+cpu)
+        compiler = "gcc"
 
-    assert isinstance(clang, bool)
     return [
-        ("TRIPLE", triple),
-        ("CPU", cpu),
-        ("CPUFLAGS", cpuflags),
-        ("CPUENDIANNESS", cpu_endianness[cpu]),
-        ("CLANG", str(int(clang)))
+        ("CLANG", str(compiler == "clang")),
+        ("CPU", cpu_or_bridge.cpu_type),
+        ("CPUENDIANNESS", cpu_or_bridge.endianness),
+        ("CPUFLAGS", " ".join(cpu_or_bridge.compiler_flags(compiler))),
+        ("TRIPLE", cpu_or_bridge.triple(compiler, "metal")),
     ]
 
 
-def get_linker_output_format(cpu_type):
-    linker_output_formats = {
-        "lm32": "elf32-lm32",
-        "or1k": "elf32-or1k",
-        "riscv32": "elf32-littleriscv"
-    }
-    return "OUTPUT_FORMAT(\"" + linker_output_formats[cpu_type] + "\")\n"
+def get_linker_output_format(cpu_or_bridge):
+    return "OUTPUT_FORMAT(\"" + cpu_or_bridge.linker_output_format() + "\")\n"
 
 
 def get_linker_regions(regions):

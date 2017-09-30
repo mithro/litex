@@ -64,3 +64,24 @@ class LM32(Module):
                 "lm32_interrupt.v", "lm32_ram.v", "lm32_dp_ram.v", "lm32_icache.v",
                 "lm32_dcache.v", "lm32_debug.v", "lm32_itlb.v", "lm32_dtlb.v")
         platform.add_verilog_include_path(vdir)
+
+    @property
+    def cpu_type(self):
+        return "lm32"
+
+    @property
+    def endianness(self):
+        return "big"
+
+    def compiler_flags(self, compiler):
+        assert compiler == "gcc", "lm32 only supported with gcc"
+        return [
+            "-mbarrel-shift-enabled",
+            "-mmultiply-enabled",
+            "-mdivide-enabled",
+            "-msign-extend-enabled",
+        ]
+
+    def linker_output_format(self):
+        """Linker output format for this CPU core."""
+        return "elf32-lm32"

@@ -94,6 +94,7 @@ class SoCCore(Module):
                 self.add_cpu_or_bridge(picorv32.PicoRV32(platform, self.cpu_reset_address))
             else:
                 raise ValueError("Unsupported CPU type: {}".format(cpu_type))
+            assert cpu_type == self.cpu_or_bridge.cpu_type
             self.add_wb_master(self.cpu_or_bridge.ibus)
             self.add_wb_master(self.cpu_or_bridge.dbus)
         self.config["CPU_TYPE"] = str(cpu_type).upper()

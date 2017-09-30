@@ -104,3 +104,28 @@ class PicoRV32(Module):
         vdir = os.path.join(
             os.path.abspath(os.path.dirname(__file__)), "verilog")
         platform.add_source(os.path.join(vdir, "picorv32.v"))
+
+    @property
+    def cpu_type(self):
+        return "riscv32"
+
+    @property
+    def endianness(self):
+        return "little"
+
+    def compiler_flags(self, compiler):
+        """Compiler flags needed for this CPU core."""
+        assert compiler == "gcc", "riscv only supported with gcc"
+        return [
+            "-mno-save-restore",
+        ]
+
+    def triple(self, compiler, firmware):
+        """Triple for this CPU core with given firmware."""
+        if firmware == "linux":
+            return "riscv32-linux-elf"
+        return "riscv32-unknown-elf"
+
+    def linker_output_format(self):
+        """Linker output format for this CPU core."""
+        return "elf32-littleriscv"
