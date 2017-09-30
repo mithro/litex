@@ -110,6 +110,9 @@ class LM32(Module):
             "-msign-extend-enabled",
         ]
 
+    def triple(self, compiler, firmware):
+        return "lm32-elf"
+
     def linker_output_format(self):
         """Linker output format for this CPU core."""
         return "elf32-lm32"
