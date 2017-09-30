@@ -46,18 +46,17 @@ def get_cpu_mak(cpu):
             raise OSError(msg)
         return r
 
-    # return informations
     return [
-        ("TRIPLE", select_triple(triple)),
-        ("CPU", cpu.name),
-        ("CPUFLAGS", flags),
-        ("CPUENDIANNESS", cpu.endianness),
-        ("CLANG", str(int(clang)))
+        ("CLANG", str(compiler == "clang")),
+        ("CPU", cpu_or_bridge.cpu_type),
+        ("CPUENDIANNESS", cpu_or_bridge.endianness),
+        ("CPUFLAGS", " ".join(cpu_or_bridge.compiler_flags(compiler))),
+        ("TRIPLE", cpu_or_bridge.triple(compiler, "metal")),
     ]
 
 
-def get_linker_output_format(cpu):
-    return "OUTPUT_FORMAT(\"" + cpu.linker_output_format + "\")\n"
+def get_linker_output_format(cpu_or_bridge):
+    return "OUTPUT_FORMAT(\"" + cpu_or_bridge.linker_output_format() + "\")\n"
 
 
 def get_linker_regions(regions):

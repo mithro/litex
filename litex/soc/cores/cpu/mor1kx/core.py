@@ -61,12 +61,12 @@ class MOR1KX(Module):
         # Only use in simulation
         SIMULATION = -1
 
-        def cc_flag(self, compiler):
+        def compiler_flags(self, compiler):
             """Get compiler flags for this feature."""
-            if self != Multiplier.NONE:
-                return "-mhard-mul"
+            if self != MOR1KX.Multiplier.NONE:
+                return ["-mhard-mul"]
             else:
-                return "-msoft-mul"
+                return ["-msoft-mul"]
 
 
     class Divider(enum.IntEnum):
@@ -82,11 +82,11 @@ class MOR1KX(Module):
         # Only use in simulation
         SIMULATION = -1
 
-        def cc_flag(self, compiler):
-            if self != Divider.NONE:
-                return "-mhard-div"
+        def compiler_flags(self, compiler):
+            if self != MOR1KX.Divider.NONE:
+                return ["-mhard-div"]
             else:
-                return "-msoft-div"
+                return ["-msoft-div"]
 
 
     class Shifter(enum.IntEnum):
@@ -100,16 +100,16 @@ class MOR1KX(Module):
          * Barrel, single cycle barrel shifter.
          * Serial, XXX cycle serial shifter.
         """
-        NONE = 0
+        # No NONE option - shift instructions are required
         # Sorted in order of speed
         SERIAL = 1
         BARREL = 2
         # In simulation just use BARREL version
         SIMULATION = BARREL
 
-        def cc_flag(self, compiler):
+        def compiler_flags(self, compiler):
             """Get compiler flags for this feature."""
-            return ""
+            return []
 
 
     class Instructions(enum.Enum):
@@ -129,7 +129,7 @@ class MOR1KX(Module):
         ROR = 'Rotate right'
         SRA = 'Shift-right-arithmetic'
 
-        def cc_flag(self, compiler):
+        def compiler_flags(self, compiler):
             """Get compiler flags for this feature."""
             # Which optional instructions are supported by given compilers.
             _compiler_support = {
@@ -149,7 +149,7 @@ class MOR1KX(Module):
                 flag = "SEXT"
             else:
                 flag = self.name.lower()
-            return "-m{}".format(flag)
+            return ["-m{}".format(flag)]
 
 
     @dataclass
@@ -412,6 +412,9 @@ class MOR1KX(Module):
                 p_FEATURE_DIVIDER       = divider.name,
                 p_OPTION_SHIFTER        = shifter.name,
             ))
+        self._multipler = multiplier
+        self._divider = divider
+        self._shifter = shifter
 
         # Optional instructions / opcodes
         #    parameter FEATURE_ADDC     = "ENABLED",
@@ -436,8 +439,10 @@ class MOR1KX(Module):
         #    parameter FEATURE_EXT      = "NONE",
         for ins in instructions:
             assert isinstance(ins, MOR1KX.Instructions)
+        self._instructions = instructions
+
         for ins in MOR1KX.Instructions:
-            if ins in instructions:
+            if ins in self._instructions:
                 kw["p_FEATURE_{}".format(ins.name)] = "ENABLED"
             else:
                 kw["p_FEATURE_{}".format(ins.name)] = "NONE"
@@ -457,6 +462,11 @@ class MOR1KX(Module):
         # Floating point unit
         #    parameter FEATURE_FPU     = "NONE", // ENABLED|NONE: actual for cappuccino pipeline only
 
+        print("-"*80)
+        print("mor1kx config")
+        print("-"*80)
+        print(kw)
+        print("-"*80)
 
         i_adr_o = Signal(32)
         d_adr_o = Signal(32)
@@ -526,3 +536,36 @@ class MOR1KX(Module):
             "verilog", "rtl", "verilog")
         platform.add_source_dir(vdir)
         platform.add_verilog_include_path(vdir)
+
+    @property
+    def cpu_type(self):
+        return "or1k"
+
+    @property
+    def endianness(self):
+        return "big"
+
+    def compiler_flags(self, compiler):
+        """Compiler flags needed for this CPU core."""
+        compiler_flags = []
+        compiler_flags += self._multipler.compiler_flags(compiler)
+        compiler_flags += self._divider.compiler_flags(compiler)
+        compiler_flags += self._shifter.compiler_flags(compiler)
+
+        for ins in self._instructions:
+            compiler_flags += ins.compiler_flags(compiler)
+
+        return compiler_flags
+
+    def triple(self, compiler, firmware):
+        """Triple for this CPU core with given firmware."""
+        if compiler == "clang":
+            return "or1k-linux"
+        elif compiler == "gcc":
+            if firmware == "linux":
+                return "or1k-linux"
+            return "or1k-elf"
+
+    def linker_output_format(self):
+        """Linker output format for this CPU core."""
+        return "elf32-or1k"

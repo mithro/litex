@@ -95,7 +95,7 @@ class Builder:
 
         write_to_file(
             os.path.join(generated_dir, "output_format.ld"),
-            cpu_interface.get_linker_output_format(self.soc.cpu))
+            cpu_interface.get_linker_output_format(self.soc.cpu_or_bridge))
         write_to_file(
             os.path.join(generated_dir, "regions.ld"),
             cpu_interface.get_linker_regions(memory_regions))

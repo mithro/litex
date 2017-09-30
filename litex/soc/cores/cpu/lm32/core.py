@@ -6,11 +6,6 @@ from litex.soc.interconnect import wishbone
 
 
 class LM32(Module):
-    name = "lm32"
-    endianness = "big"
-    gcc_triple = "lm32-elf"
-    gcc_flags = "-mbarrel-shift-enabled -mmultiply-enabled -mdivide-enabled -msign-extend-enabled"
-    linker_output_format = "elf32-lm32"
 
     def __init__(self, platform, eba_reset, variant=None):
         assert variant in (None, "lite", "minimal"), "Unsupported variant %s" % variant
@@ -69,25 +64,26 @@ class LM32(Module):
     def add_sources(platform, variant=None):
         vdir = os.path.join(
             os.path.abspath(os.path.dirname(__file__)), "verilog")
-        platform.add_sources(os.path.join(vdir, "submodule", "rtl"),
-                "lm32_cpu.v",
-                "lm32_instruction_unit.v",
-                "lm32_decoder.v",
-                "lm32_load_store_unit.v",
-                "lm32_adder.v",
-                "lm32_addsub.v",
-                "lm32_logic_op.v",
-                "lm32_shifter.v",
-                "lm32_multiplier.v",
-                "lm32_mc_arithmetic.v",
-                "lm32_interrupt.v",
-                "lm32_ram.v",
-                "lm32_dp_ram.v",
-                "lm32_icache.v",
-                "lm32_dcache.v",
-                "lm32_debug.v",
-                "lm32_itlb.v",
-                "lm32_dtlb.v")
+        platform.add_sources(
+            os.path.join(vdir, "submodule", "rtl"),
+            "lm32_cpu.v",
+            "lm32_instruction_unit.v",
+            "lm32_decoder.v",
+            "lm32_load_store_unit.v",
+            "lm32_adder.v",
+            "lm32_addsub.v",
+            "lm32_logic_op.v",
+            "lm32_shifter.v",
+            "lm32_multiplier.v",
+            "lm32_mc_arithmetic.v",
+            "lm32_interrupt.v",
+            "lm32_ram.v",
+            "lm32_dp_ram.v",
+            "lm32_icache.v",
+            "lm32_dcache.v",
+            "lm32_debug.v",
+            "lm32_itlb.v",
+            "lm32_dtlb.v")
         platform.add_verilog_include_path(os.path.join(vdir, "submodule", "rtl"))
         if variant == "minimal":
             platform.add_verilog_include_path(os.path.join(vdir, "config_minimal"))
@@ -95,3 +91,25 @@ class LM32(Module):
             platform.add_verilog_include_path(os.path.join(vdir, "config_lite"))
         else:
             platform.add_verilog_include_path(os.path.join(vdir, "config"))
+        platform.add_verilog_include_path(vdir)
+
+    @property
+    def cpu_type(self):
+        return "lm32"
+
+    @property
+    def endianness(self):
+        return "big"
+
+    def compiler_flags(self, compiler):
+        assert compiler == "gcc", "lm32 only supported with gcc"
+        return [
+            "-mbarrel-shift-enabled",
+            "-mmultiply-enabled",
+            "-mdivide-enabled",
+            "-msign-extend-enabled",
+        ]
+
+    def linker_output_format(self):
+        """Linker output format for this CPU core."""
+        return "elf32-lm32"
