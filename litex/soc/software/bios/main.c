@@ -353,7 +353,7 @@ static void do_command(char *c)
 	else if(strcmp(token, "crc") == 0) crc(get_token(&c), get_token(&c));
 	else if(strcmp(token, "ident") == 0) ident();
 
-#ifdef L2_SIZE
+#ifdef CONFIG_L2_SIZE
 	else if(strcmp(token, "flushl2") == 0) flush_l2_cache();
 #endif
 

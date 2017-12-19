@@ -220,6 +220,12 @@ void sdrwloff(void)
 	ddrphy_wlevel_en_write(0);
 }
 
+#ifdef CONFIG_KUSDDRPHY
+#define ERR_DDRPHY_DELAY 512
+#else
+#define ERR_DDRPHY_DELAY 32
+#endif
+
 static int write_level(int *delay, int *high_skew)
 {
 	int i;
@@ -309,7 +315,7 @@ static void read_bitslip(int *delay, int *high_skew)
 	for(i=DFII_PIX_DATA_SIZE/2-1;i>=0;i--)
 		if(delay[i] > bitslip_thr) {
 			ddrphy_dly_sel_write(1 << i);
-#ifdef KUSDDRPHY
+#ifdef CONFIG_KUSDDRPHY
 			ddrphy_rdly_dq_bitslip_write(1);
 #else
 			/* 7-series SERDES in DDR mode needs 3 pulses for 1 bitslip */
@@ -382,8 +388,8 @@ static void read_delays(void)
 		delay_min = delay;
 
 		/* Get a bit further into the working zone */
-#ifdef KUSDDRPHY
-		for(j=0;j<16;j++) {
+#ifdef CONFIG_KUSDDRPHY
+		for(j=0;j<8;j++) {
 			delay += 1;
 			ddrphy_rdly_dq_inc_write(1);
 		}
