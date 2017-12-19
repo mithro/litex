@@ -7,7 +7,7 @@ from litex.gen.genlib.resetsync import AsyncResetSynchronizer
 
 from litex.boards.platforms import kc705
 
-from litex.soc.integration.soc_core import mem_decoder
+from litex.soc.cores import spi_flash
 from litex.soc.integration.soc_sdram import *
 from litex.soc.integration.builder import *
 
@@ -32,7 +32,7 @@ class _CRG(Module):
 
         pll_locked = Signal()
         pll_fb = Signal()
-        self.pll_sys = Signal()
+        pll_sys = Signal()
         pll_sys4x = Signal()
         pll_clk200 = Signal()
         self.specials += [
@@ -56,7 +56,7 @@ class _CRG(Module):
                      p_CLKOUT2_DIVIDE=5, p_CLKOUT2_PHASE=0.0,
                      o_CLKOUT2=pll_clk200
             ),
-            Instance("BUFG", i_I=self.pll_sys, o_O=self.cd_sys.clk),
+            Instance("BUFG", i_I=pll_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=pll_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             AsyncResetSynchronizer(self.cd_sys, ~pll_locked | rst),
@@ -79,21 +79,34 @@ class BaseSoC(SoCSDRAM):
         "ddrphy":    16,
     }
     csr_map.update(SoCSDRAM.csr_map)
-    def __init__(self, **kwargs):
-        platform = kc705.Platform()
+    def __init__(self, toolchain="vivado", sdram_controller_type="minicon", **kwargs):
+        platform = kc705.Platform(toolchain=toolchain)
         SoCSDRAM.__init__(self, platform, clk_freq=125*1000000,
-                         integrated_rom_size=0x8000,
-                         integrated_sram_size=0x8000,
+                          integrated_rom_size=0x8000,
+                          integrated_sram_size=0x8000,
                           **kwargs)
 
         self.submodules.crg = _CRG(platform)
 
-        # sdram
         self.submodules.ddrphy = k7ddrphy.K7DDRPHY(platform.request("ddram"))
         sdram_module = MT8JTF12864(self.clk_freq, "1:4")
         self.register_sdram(self.ddrphy,
                             sdram_module.geom_settings,
                             sdram_module.timing_settings)
+        self.csr_devices.append("ddrphy")
+
+        if not self.integrated_rom_size:
+            spiflash_pads = platform.request("spiflash")
+            spiflash_pads.clk = Signal()
+            self.specials += Instance("STARTUPE2",
+                                      i_CLK=0, i_GSR=0, i_GTS=0, i_KEYCLEARB=0, i_PACK=0,
+                                      i_USRCCLKO=spiflash_pads.clk, i_USRCCLKTS=0, i_USRDONEO=1, i_USRDONETS=1)
+            self.submodules.spiflash = spi_flash.SpiFlash(spiflash_pads, dummy=11, div=2)
+            self.config["SPIFLASH_PAGE_SIZE"] = 256
+            self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
+            self.flash_boot_address = 0xb00000
+            self.register_rom(self.spiflash.bus, 16*1024*1024)
+            self.csr_devices.append("spiflash")
 
 
 class MiniSoC(BaseSoC):
@@ -113,18 +126,26 @@ class MiniSoC(BaseSoC):
     }
     mem_map.update(BaseSoC.mem_map)
 
-    def __init__(self, **kwargs):
-        BaseSoC.__init__(self, **kwargs)
+    def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, **kwargs):
+        BaseSoC.__init__(self, *args, **kwargs)
 
-        self.submodules.ethphy = LiteEthPHY(self.platform.request("eth_clocks"),
+        self.csr_devices += ["ethphy", "ethmac"]
+        self.interrupt_devices.append("ethmac")
+
+        eth_clocks = self.platform.request("eth_clocks")
+        self.submodules.ethphy = LiteEthPHY(eth_clocks,
                                             self.platform.request("eth"), clk_freq=self.clk_freq)
-        self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone")
-        self.add_wb_slave(mem_decoder(self.mem_map["ethmac"]), self.ethmac.bus)
-        self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base, 0x2000)
+        self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone",
+                                            nrxslots=ethmac_nrxslots, ntxslots=ethmac_ntxslots)
+        ethmac_len = (ethmac_nrxslots + ethmac_ntxslots) * 0x800
+        self.add_wb_slave(self.mem_map["ethmac"], ethmac_len, self.ethmac.bus)
+        self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base,
+                               ethmac_len)
 
         self.crg.cd_sys.clk.attr.add("keep")
         self.ethphy.crg.cd_eth_rx.clk.attr.add("keep")
         self.ethphy.crg.cd_eth_tx.clk.attr.add("keep")
+        # period constraints are required here because of vivado
         self.platform.add_period_constraint(self.crg.cd_sys.clk, 8.0)
         self.platform.add_period_constraint(self.ethphy.crg.cd_eth_rx.clk, 8.0)
         self.platform.add_period_constraint(self.ethphy.crg.cd_eth_tx.clk, 8.0)
@@ -134,10 +155,23 @@ class MiniSoC(BaseSoC):
             self.ethphy.crg.cd_eth_tx.clk)
 
 
+def soc_kc705_args(parser):
+    soc_sdram_args(parser)
+    parser.add_argument("--toolchain", default="vivado",
+                        help="FPGA toolchain to use: ise, vivado")
+
+
+def soc_kc705_argdict(args):
+    r = soc_sdram_argdict(args)
+    r["toolchain"] = args.toolchain
+    return r
+
+
 def main():
-    parser = argparse.ArgumentParser(description="LiteX SoC port to KC705")
+    parser = argparse.ArgumentParser(description="LiteX port to the KC705")
     builder_args(parser)
     soc_sdram_args(parser)
+    soc_kc705_args(parser)
     parser.add_argument("--with-ethernet", action="store_true",
                         help="enable Ethernet support")
     args = parser.parse_args()
