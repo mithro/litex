@@ -6,6 +6,42 @@ from litex.build.generic_programmer import GenericProgrammer
 from litex.build.xilinx import common
 
 
+def _run_urjtag(cmds):
+    with subprocess.Popen("jtag", stdin=subprocess.PIPE) as process:
+        process.stdin.write(cmds.encode("ASCII"))
+        process.communicate()
+
+
+class UrJTAG(GenericProgrammer):
+    needs_bitreverse = True
+
+    def __init__(self, cable, flash_proxy_basename=None):
+        GenericProgrammer.__init__(self, flash_proxy_basename)
+        self.cable = cable
+
+    def load_bitstream(self, bitstream_file):
+        cmds = """cable {cable}
+detect
+pld load {bitstream}
+quit
+""".format(bitstream=bitstream_file, cable=self.cable)
+        _run_urjtag(cmds)
+
+    def flash(self, address, data_file):
+        flash_proxy = self.find_flash_proxy()
+        cmds = """cable {cable}
+detect
+pld load "{flash_proxy}"
+initbus fjmem opcode=000010
+frequency 6000000
+detectflash 0
+endian big
+flashmem "{address}" "{data_file}" noverify
+""".format(flash_proxy=flash_proxy, address=address, data_file=data_file,
+           cable=self.cable)
+        _run_urjtag(cmds)
+
+
 class XC3SProg(GenericProgrammer):
     needs_bitreverse = False
 
@@ -112,21 +148,22 @@ quit
         cmds = """open_hw
 connect_hw_server
 open_hw_target
+<<<<<<< HEAD:litex/build/xilinx/programmer.py
 create_hw_cfgmem -hw_device [lindex [get_hw_devices] {{{device}}}] -mem_dev  [lindex [get_cfgmem_parts {{{flash_part}}}] 0]
 
-set_property PROGRAM.BLANK_CHECK  0 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{{device}}} ]]
-set_property PROGRAM.ERASE  1 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{{device}}} ]]
-set_property PROGRAM.CFG_PROGRAM  1 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{{device}}} ]]
-set_property PROGRAM.VERIFY  1 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{{device}}} ]]
-refresh_hw_device [lindex [get_hw_devices] {{{device}}}]
+set_property PROGRAM.BLANK_CHECK  0 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{device}} ]]
+set_property PROGRAM.ERASE  1 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{device}} ]]
+set_property PROGRAM.CFG_PROGRAM  1 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{device}} ]]
+set_property PROGRAM.VERIFY  1 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{device}} ]]
+refresh_hw_device [lindex [get_hw_devices] {{device}}]
 
-set_property PROGRAM.ADDRESS_RANGE  {{use_file}} [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{{device}}} ]]
-set_property PROGRAM.FILES [list "{data}" ] [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{{device}}}]]
-set_property PROGRAM.UNUSED_PIN_TERMINATION {{pull-none}} [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{{device}}} ]]
-set_property PROGRAM.BLANK_CHECK  0 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{{device}}} ]]
-set_property PROGRAM.ERASE  1 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{{device}}} ]]
-set_property PROGRAM.CFG_PROGRAM  1 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{{device}}} ]]
-set_property PROGRAM.VERIFY  1 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{{device}}} ]]
+set_property PROGRAM.ADDRESS_RANGE  {{use_file}} [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{device}} ]]
+set_property PROGRAM.FILES [list "{data}" ] [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{device}}]]
+set_property PROGRAM.UNUSED_PIN_TERMINATION {{pull-none}} [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{device}} ]]
+set_property PROGRAM.BLANK_CHECK  0 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{device}} ]]
+set_property PROGRAM.ERASE  1 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{device}} ]]
+set_property PROGRAM.CFG_PROGRAM  1 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{device}} ]]
+set_property PROGRAM.VERIFY  1 [ get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{device}} ]]
 
 startgroup
 if {{![string equal [get_property PROGRAM.HW_CFGMEM_TYPE  [lindex [get_hw_devices] {{{device}}}]] [get_property MEM_TYPE [get_property CFGMEM_PART [get_property PROGRAM.HW_CFGMEM [lindex [get_hw_devices] {{{device}}} ]]]]] }}  {{ create_hw_bitstream -hw_device [lindex [get_hw_devices] {{{device}}}] [get_property PROGRAM.HW_CFGMEM_BITFILE [ lindex [get_hw_devices] {{{device}}}]]; program_hw_devices [lindex [get_hw_devices] {{{device}}}]; }};
