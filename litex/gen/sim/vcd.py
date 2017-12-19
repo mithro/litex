@@ -30,7 +30,7 @@ class VCDWriter:
         self.signal_values = dict()
         self.t = 0
 
-    def _write_value(self, signal, value):
+    def _write_value(self, f, signal, value):
         l = len(signal)
         if value < 0:
             value += 2**l
@@ -44,8 +44,7 @@ class VCDWriter:
             code = next(self.codegen)
             self.codes[signal] = code
             self.init(self.codes.keys())
-
-        return fmtstr.format(value, code)
+        f.write(fmtstr.format(value, code))
 
     def _write(self, s):
         self.out_file.write(s)
@@ -87,16 +86,32 @@ class VCDWriter:
     def set(self, signal, value):
         if (signal not in self.signal_values
                 or self.signal_values[signal] != value):
-            self._write(self._write_value(signal, value))
+            self._write_value(self.buffer_file, signal, value)
             self.signal_values[signal] = value
 
     def delay(self, delay):
         self.t += delay
-        self._write("#{}\n".format(self.t))
+        self.buffer_file.write("#{}\n".format(self.t))
 
     def close(self):
-        self.out_file.close()
-        self.buffer_file.close()
+        out = open(self.filename, "w")
+        try:
+            ns = build_namespace(self.codes.keys())
+            for signal, code in self.codes.items():
+                name = ns.get_name(signal)
+                out.write("$var wire {len} {code} {name} $end\n"
+                          .format(name=name, code=code, len=len(signal)))
+            out.write("$dumpvars\n")
+            for signal in self.codes.keys():
+                self._write_value(out, signal, signal.reset.value)
+            out.write("$end\n")
+            out.write("#0\n")
+
+            self.buffer_file.seek(0)
+            shutil.copyfileobj(self.buffer_file, out)
+            self.buffer_file.close()
+        finally:
+            out.close()
 
 
 class DummyVCDWriter:
