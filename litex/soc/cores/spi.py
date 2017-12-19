@@ -1,6 +1,11 @@
+import collections
+from functools import reduce
+from operator import or_
 from itertools import product
 
+
 from litex.gen import *
+from litex.gen.genlib.fsm import FSM, NextState
 from litex.soc.interconnect.csr import *
 
 
@@ -45,19 +50,18 @@ class SPIRegister(Module):
             self.o.eq(Mux(self.lsb, self.data[0], self.data[-1])),
         ]
         self.sync += [
-            If(self.lsb,
-                If(self.shift,
-                    self.data[:-1].eq(self.data[1:])
-                ),
-                If(self.sample,
-                    self.data[0].eq(self.i)
-                )
-            ).Else(
-                If(self.shift,
+            If(self.shift,
+                If(self.lsb,
+                    self.data[:-1].eq(self.data[1:]),
+                ).Else(
                     self.data[1:].eq(self.data[:-1]),
-                ),
-                If(self.sample,
-                    self.data[0].eq(self.i)
+                )
+            ),
+            If(self.sample,
+                If(self.lsb,
+                    self.data[-1].eq(self.i),
+                ).Else(
+                    self.data[0].eq(self.i),
                 )
             )
         ]
@@ -160,11 +164,12 @@ class SPIMachine(Module):
         ]
 
 
-class SPIMasterCore(Module):
-    """SPI Master Core.
+class SPIMaster(Module, AutoCSR):
+    """SPI Master.
 
     Notes:
-        * M = 32 is the data width (maximum write bits, maximum read bits)
+        * M = 32 is the data width (width of the data register,
+          maximum write bits, maximum read bits)
         * Every transfer consists of a write_length 0-M bit write followed
           by a read_length 0-M bit read.
         * cs_n is asserted at the beginning and deasserted at the end of the
@@ -175,13 +180,13 @@ class SPIMasterCore(Module):
           If it is one-hot, asserting multiple slaves should only be attempted
           if miso is either not connected between slaves, or open collector,
           or correctly multiplexed externally.
-        * If config.cs_polarity == 0 (cs active low, the default),
+        * If self._cs_polarity == 0 (cs active low, the default),
           "cs_n all deasserted" means "all cs_n bits high".
         * cs is not mandatory in pads. Framing and chip selection can also
           be handled independently through other means.
         * If there is a miso wire in pads, the input and output can be done
           with two signals (a.k.a. 4-wire SPI), else mosi must be used for
-          both output and input (a.k.a. 3-wire SPI) and config.half_duplex
+          both output and input (a.k.a. 3-wire SPI) and self._half_duplex
           must to be set when reading data is desired.
         * For 4-wire SPI only the sum of read_length and write_length matters.
           The behavior is the same no matter how the total transfer length is
@@ -190,189 +195,148 @@ class SPIMasterCore(Module):
           "shift_out" clk edge corresponding to bit write_length + 1 of the
           transfer.
         * The first bit output on mosi is always the MSB/LSB (depending on
-          config.lsb_first) of the miso_data signal, independent of
+          self._lsb_first) of the data register, independent of
           xfer.write_len. The last bit input from miso always ends up in
-          the LSB/MSB (respectively) of the misoc_data signal, independent of
+          the LSB/MSB (respectively) of the data register, independent of
           read_len.
         * Data output on mosi in 4-wire SPI during the read cycles is what
           is found in the data register at the time.
           Data in the data register outside the least/most (depending
-          on config.lsb_first) significant read_length bits is what is
+          on self._lsb_first) significant read_length bits is what is
           seen on miso during the write cycles.
         * The SPI data register is double-buffered: Once a transfer has
           started, new write data can be written, queuing a new transfer.
           Transfers submitted this way are chained and executed without
           deasserting cs. Once a transfer completes, the previous transfer's
           read data is available in the data register.
-        * Changes to config signal take effect immediately. Changes
-          to xfer_* signals are synchronized to the start of a transfer.
+        * Writes to the config register take effect immediately. Writes to xfer
+          and data are synchronized to the start of a transfer.
+        * A wishbone data register write is ack-ed when the transfer has
+          been written to the intermediate buffer. It will be started when
+          there are no other transactions being executed, either starting
+          a new SPI transfer of chained to an in-flight transfer.
+          Writes take two cycles unless the write is to the data register
+          and another chained transfer is pending and the transfer being
+          executed is not complete. Reads always finish in two cycles.
 
     Transaction Sequence:
-        * If desired, set the config signal to set up the core.
-        * If designed, set the xfer signal to set up lengths and cs_n.
-        * Set the miso_data signal (not required for zero-length writes),
-        * Set start signal to 1
-        * Wait for active and pending signals to be 0.
-        * If desired, use the misoc_data signal corresponding to the last
+        * If desired, write the config register to set up the core.
+        * If desired, write the xfer register to change lengths and cs_n.
+        * Write the data register (also for zero-length writes),
+          writing triggers the transfer and when the transfer is accepted to
+          the inermediate buffer, the write is ack-ed.
+        * If desired, read the data register corresponding to the last
           completed transfer.
-
-    Core IOs:
-
-    config signal:
-        1 offline: all pins high-z (reset=1)
-        1 active: cs/transfer active (read-only)
-        1 pending: transfer pending in intermediate buffer (read-only)
-        1 cs_polarity: active level of chip select (reset=0)
-        1 clk_polarity: idle level of clk (reset=0)
-        1 clk_phase: first edge after cs assertion to sample data on (reset=0)
-            (clk_polarity, clk_phase) == (CPOL, CPHA) in Freescale language.
-            (0, 0): idle low, output on falling, input on rising
-            (0, 1): idle low, output on rising, input on falling
-            (1, 0): idle high, output on rising, input on falling
-            (1, 1): idle high, output on falling, input on rising
-            There is never a clk edge during a cs edge.
-        1 lsb_first: LSB is the first bit on the wire (reset=0)
-        1 half_duplex: 3-wire SPI, in/out on mosi (reset=0)
-        8 undefined
-        8 div_write: counter load value to divide this module's clock
-            to generate the SPI write clk (reset=0)
-            f_clk/f_spi_write == div_write + 2
-        8 div_read: ditto for the read clock
-
-    xfer_config signal:
-        16 cs: active high bit mask of chip selects to assert (reset=0)
-        6 write_len: 0-M bits (reset=0)
-        2 undefined
-        6 read_len: 0-M bits (reset=0)
-        2 undefined
-
-    xfer_mosi/miso_data signal:
-        M write/read data (reset=0)
+        * If desired, change xfer register for the next transfer.
+        * If desired, write data queuing the next (possibly chained) transfer.
     """
-    def __init__(self, pads):
-        self.config = Record([
-            ("offline", 1),
-            ("padding0", 2),
-            ("cs_polarity", 1),
-            ("clk_polarity", 1),
-            ("clk_phase", 1),
-            ("lsb_first", 1),
-            ("half_duplex", 1),
-            ("padding1", 8),
-            ("div_write", 8),
-            ("div_read", 8),
-        ])
-        self.config.offline.reset = 1
+    def __init__(self, pads, data_width=32, clock_width=8, bits_width=6):
+        if isinstance(pads, collections.Iterable):
+            pads_list = pads
+        else:
+            pads_list = [pads]
 
-        self.xfer = Record([
-            ("cs", 16),
-            ("write_length", 6),
-            ("padding0", 2),
-            ("read_length", 6),
-            ("padding1", 2),
-        ])
+        # CSR
+        self._data_read = CSRStatus(data_width)
+        self._data_write = CSRStorage(data_width, atomic_write=True)
+        self._xfer_len_read = CSRStorage(bits_width)
+        self._xfer_len_write = CSRStorage(bits_width)
+        self._cs = CSRStorage(sum(len(pads.cs_n) for pads in pads_list))
+        self._offline = CSRStorage(reset=1)
+        self._cs_polarity = CSRStorage(len(self._cs.storage))
+        self._clk_polarity = CSRStorage()
+        self._clk_phase = CSRStorage()
+        self._lsb_first = CSRStorage()
+        self._half_duplex = CSRStorage()
+        self._active = CSRStatus()
+        self._pending = CSRStatus()
+        self._clk_div_read = CSRStorage(clock_width)
+        self._clk_div_write = CSRStorage(clock_width)
+        self.data_width = CSRConstant(data_width)
+        self.clock_width = CSRConstant(clock_width)
+        self.bits_width = CSRConstant(bits_width)
+        self.cs_width = CSRConstant(len(self._cs.storage))
 
-        self.start = Signal()
-        self.active = Signal()
-        self.pending = Signal()
-        self.mosi_data = Signal(32)
-        self.miso_data = Signal(32)
+        self.submodules.spi = spi = SPIMachine(
+            data_width=data_width + 1,
+            clock_width=clock_width,
+            bits_width=bits_width)
 
-        # # #
+        pending = Signal(1)
+        cs = Signal.like(self._cs.storage)
 
-        self.submodules.machine = machine = SPIMachine(
-            data_width=32,
-            clock_width=len(self.config.div_read),
-            bits_width=len(self.xfer.read_length))
-
-        pending = Signal()
-        cs = Signal.like(self.xfer.cs)
-        data_read = Signal.like(machine.reg.data)
-        data_write = Signal.like(machine.reg.data)
+        ###
 
         self.comb += [
-            self.miso_data.eq(data_read),
-            machine.start.eq(pending & (~machine.cs | machine.done)),
-            machine.clk_phase.eq(self.config.clk_phase),
-            machine.reg.lsb.eq(self.config.lsb_first),
-            machine.div_write.eq(self.config.div_write),
-            machine.div_read.eq(self.config.div_read),
+            spi.start.eq(pending & (~spi.cs | spi.done)),
+            spi.clk_phase.eq(self._clk_phase.storage),
+            spi.reg.lsb.eq(self._lsb_first.storage),
+            spi.div_write.eq(self._clk_div_write.storage),
+            spi.div_read.eq(self._clk_div_read.storage),
+            self._pending.status.eq(pending),
+            self._active.status.eq(spi.cs),
         ]
         self.sync += [
-            If(machine.done,
-                data_read.eq(machine.reg.data),
+            If(spi.done,
+                self._data_read.status.eq(
+                    Mux(spi.reg.lsb, spi.reg.data[1:], spi.reg.data[:-1])),
             ),
-            If(machine.start,
-                cs.eq(self.xfer.cs),
-                machine.bits.n_write.eq(self.xfer.write_length),
-                machine.bits.n_read.eq(self.xfer.read_length),
-                machine.reg.data.eq(data_write),
+            If(spi.start,
+                cs.eq(self._cs.storage),
+                spi.bits.n_write.eq(self._xfer_len_write.storage),
+                spi.bits.n_read.eq(self._xfer_len_read.storage),
+                If(spi.reg.lsb,
+                    spi.reg.data[:-1].eq(self._data_write.storage),
+                ).Else(
+                    spi.reg.data[1:].eq(self._data_write.storage),
+                ),
                 pending.eq(0),
             ),
-            If(self.start,
-                data_write.eq(self.mosi_data),
-                pending.eq(1)
+
+            # CSR bus will honor all reads and writes. A write to the
+            # data_write register when pending is active will overwrite
+            # the existing data. A user must query the pending status
+            # register before writing.
+
+            If(self._data_write.re == 1,
+                pending.eq(1),
             ),
-            self.active.eq(machine.cs),
-            self.pending.eq(pending),
         ]
 
         # I/O
-        if not hasattr(pads, "cs_n"):
-            self.cs_n = Signal()
-        else:
-            self.cs_n = pads.cs_n
-        cs_n_t = TSTriple(len(self.cs_n))
-        self.specials += cs_n_t.get_tristate(self.cs_n)
-        self.comb += [
-            cs_n_t.oe.eq(~self.config.offline),
-            cs_n_t.o.eq((cs & Replicate(machine.cs, len(cs))) ^
-                        Replicate(~self.config.cs_polarity, len(cs))),
-        ]
-
-        clk_t = TSTriple()
-        self.specials += clk_t.get_tristate(pads.clk)
-        self.comb += [
-            clk_t.oe.eq(~self.config.offline),
-            clk_t.o.eq((machine.cg.clk & machine.cs) ^ self.config.clk_polarity),
-        ]
-
-        mosi_t = TSTriple()
-        self.specials += mosi_t.get_tristate(pads.mosi)
-        self.comb += [
-            mosi_t.oe.eq(~self.config.offline & machine.cs &
-                         (machine.oe | ~self.config.half_duplex)),
-            mosi_t.o.eq(machine.reg.o),
-            machine.reg.i.eq(Mux(self.config.half_duplex, mosi_t.i,
-                             getattr(pads, "miso", mosi_t.i))),
-        ]
-        self.mosi_t = mosi_t
-
-
-class SPIMaster(Module, AutoCSR):
-    """SPI Master."""
-    def __init__(self, pads, interface="csr"):
-        self.submodules.core = core = SPIMasterCore(pads)
-
-        # # #
-
-        if interface == "csr":
-            self.config = CSRStorage(32)
-            self.xfer = CSRStorage(32)
-            self.start = CSR()
-            self.active = CSRStatus()
-            self.pending = CSRStatus()
-            self.mosi_data = CSRStorage(32)
-            self.miso_data = CSRStatus(32)
-
+        all_cs = Signal(len(cs))
+        self.comb += all_cs.eq((cs & Replicate(spi.cs, len(cs))) ^ ~self._cs_polarity.storage)
+        offset = 0
+        for pads in pads_list:
+            cs_n_t = TSTriple(len(pads.cs_n))
+            self.specials += cs_n_t.get_tristate(pads.cs_n)
             self.comb += [
-                core.config.raw_bits().eq(self.config.storage),
-                core.xfer.raw_bits().eq(self.xfer.storage),
-                core.start.eq(self.start.re & self.start.r),
-                self.active.status.eq(core.active),
-                self.pending.status.eq(core.pending),
-                core.mosi_data.eq(self.mosi_data.storage),
-                self.miso_data.status.eq(core.miso_data)
+                cs_n_t.oe.eq(~self._offline.storage),
+                cs_n_t.o.eq(all_cs[offset:]),
             ]
-        else:
-            raise NotImplementedError
+            offset += len(pads.cs_n)
+
+        offset = 0
+        miso_r = Signal(len(cs))
+        mosi_t_i_r = Signal(len(cs))
+        for pads in pads_list:
+            clk_t = TSTriple()
+            self.specials += clk_t.get_tristate(pads.clk)
+            self.comb += [
+                clk_t.oe.eq(~self._offline.storage),
+                clk_t.o.eq((spi.cg.clk & spi.cs) ^ self._clk_polarity.storage),
+            ]
+
+            mosi_t = TSTriple()
+            self.specials += mosi_t.get_tristate(pads.mosi)
+            self.comb += [
+                mosi_t.oe.eq(~self._offline.storage & spi.cs &
+                            (spi.oe | ~self._half_duplex.storage)),
+                mosi_t.o.eq(spi.reg.o),
+            ]
+            for i in range(len(pads.cs_n)):
+                self.comb += miso_r[offset].eq(getattr(pads, "miso", 0))
+                self.comb += mosi_t_i_r[offset].eq(mosi_t.i)
+                offset += 1
+
+        self.comb += spi.reg.i.eq((Mux(self._half_duplex.storage, mosi_t_i_r, miso_r) & cs) != 0)
