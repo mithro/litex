@@ -7,6 +7,7 @@ class Identifier(Module):
         l = len(contents)
         if l > 255:
             raise ValueError("Identifier string must be 255 characters or less")
+        contents.insert(0, l)
         contents.append(0)
         self.mem = Memory(8, len(contents), init=contents)
 
