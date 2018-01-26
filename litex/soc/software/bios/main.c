@@ -10,7 +10,10 @@
 
 #include <generated/csr.h>
 #include <generated/mem.h>
+
+#ifdef CSR_ETHMAC_BASE
 #include <net/microudp.h>
+#endif
 
 #include "sdram.h"
 #include "boot.h"
@@ -485,19 +488,23 @@ int main(int i, char **c)
 	irq_setmask(0);
 	irq_setie(1);
 	uart_init();
-	printf("\nLiteX SoC BIOS ");
+	printf("\e[1m        __   _ __      _  __\e[0m\n");
+	printf("\e[1m       / /  (_) /____ | |/_/\e[0m\n");
+	printf("\e[1m      / /__/ / __/ -_)>  <\e[0m\n");
+	printf("\e[1m     /____/_/\\__/\\__/_/|_|\e[0m\n");
+	printf("\e[1m      SoC BIOS / CPU:\e[0m");
 #ifdef __lm32__
-	printf("(lm32)\n");
+	printf("\e[1mLM32\e[0m\n");
 #elif __or1k__
-	printf("(or1k)\n");
-#elif __riscv__
-	printf("(riscv)\n");
+	printf("\e[1mOR1K\e[0m\n");
+#elif __riscv
+	printf("\e[1mRISC-V\e[0m\n");
 #else
-	printf("(unknown)\n");
+	printf("\e[1mUnknown\e[0m\n");
 #endif
 	puts(
-	"(c) Copyright 2012-2017 Enjoy-Digital\n"
-	"(c) Copyright 2007-2017 M-Labs Limited\n"
+	"(c) Copyright 2012-2018 Enjoy-Digital\n"
+	"(c) Copyright 2007-2018 M-Labs Limited\n"
 	"Built "__DATE__" "__TIME__"\n");
 	crcbios();
 #ifdef CSR_ETHMAC_BASE

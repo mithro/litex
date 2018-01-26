@@ -20,6 +20,8 @@ def _format_constraint(c):
         return "set_property DRIVE " + str(c.strength)
     elif isinstance(c, Misc):
         return "set_property " + c.misc.replace("=", " ")
+    elif isinstance(c, Inverted):
+        return None
     else:
         raise ValueError("unknown constraint {}".format(c))
 
@@ -31,7 +33,8 @@ def _format_xdc(signame, resname, *constraints):
         fmt_r += "." + resname[2]
     r = " ## {}\n".format(fmt_r)
     for c in fmt_c:
-        r += c + " [get_ports " + signame + "]\n"
+        if c is not None:
+            r += c + " [get_ports " + signame + "]\n"
     return r
 
 

@@ -35,7 +35,7 @@ def get_cpu_mak(cpu):
     elif cpu == "riscv32":
         assert not clang, "riscv32 not supported with clang."
         triple = "riscv32-unknown-elf"
-        cpuflags = "-mno-save-restore"
+        cpuflags = "-mno-save-restore -march=rv32im -mabi=ilp32"
         clang = False
     else:
         raise ValueError("Unsupported CPU type: "+cpu)
@@ -144,10 +144,10 @@ def get_csr_header(regions, constants, with_access_functions=True):
         else:
             value = str(value)
             ctype = "int"
-            r += "#define "+name+" "+value+"\n"
-            if with_access_functions:
-                r += "static inline "+ctype+" "+name.lower()+"_read(void) {\n"
-                r += "\treturn "+value+";\n}\n"
+        r += "#define "+name+" "+value+"\n"
+        if with_access_functions:
+            r += "static inline "+ctype+" "+name.lower()+"_read(void) {\n"
+            r += "\treturn "+value+";\n}\n"
 
     r += "\n#endif\n"
     return r
