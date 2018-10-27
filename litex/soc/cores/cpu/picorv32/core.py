@@ -9,7 +9,7 @@ class PicoRV32(Module):
     name = "picorv32"
     endianness = "little"
     gcc_triple = ("riscv64-unknown-elf", "riscv32-unknown-elf")
-    gcc_flags = "-D__picorv32__ -mno-save-restore -march=rv32im -mabi=ilp32"
+    gcc_flags = "-D__picorv32__ -mno-save-restore -march=rv32i -mabi=ilp32"
     linker_output_format = "elf32-littleriscv"
 
     def __init__(self, platform, progaddr_reset, variant):
@@ -31,23 +31,25 @@ class PicoRV32(Module):
 
         self.specials += Instance("picorv32",
             # parameters
-            p_ENABLE_COUNTERS=1,
-            p_ENABLE_COUNTERS64=1,
+            p_ENABLE_COUNTERS=0,
+            p_ENABLE_COUNTERS64=0,
+            # Changing REGS has no effect as on FPGAs, the registers are
+            # implemented using a register file stored in DPRAM.
             p_ENABLE_REGS_16_31=1,
             p_ENABLE_REGS_DUALPORT=1,
             p_LATCHED_MEM_RDATA=0,
-            p_TWO_STAGE_SHIFT=1,
+            p_TWO_STAGE_SHIFT=0,
             p_TWO_CYCLE_COMPARE=0,
             p_TWO_CYCLE_ALU=0,
-            p_CATCH_MISALIGN=1,
+            p_CATCH_MISALIGN=0,
             p_CATCH_ILLINSN=1,
             p_ENABLE_PCPI=0,
-            p_ENABLE_MUL=1,
-            p_ENABLE_DIV=1,
+            p_ENABLE_MUL=0,
+            p_ENABLE_DIV=0,
             p_ENABLE_FAST_MUL=0,
             p_ENABLE_IRQ=1,
-            p_ENABLE_IRQ_QREGS=1,
-            p_ENABLE_IRQ_TIMER=1,
+            p_ENABLE_IRQ_QREGS=0,
+            p_ENABLE_IRQ_TIMER=0,
             p_ENABLE_TRACE=0,
             p_MASKED_IRQ=0x00000000,
             p_LATCHED_IRQ=0xffffffff,
