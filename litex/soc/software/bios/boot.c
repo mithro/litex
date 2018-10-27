@@ -17,6 +17,34 @@
 #include "sfl.h"
 #include "boot.h"
 
+#ifndef CSR_TIMER0_BASE
+static unsigned int  timer0_load_value;
+static unsigned int  timer0_reload_value;
+static unsigned char timer0_en_value;
+static unsigned char timer0_update_value_value;
+static unsigned char timer0_value;
+static unsigned char timer0_ev_status_value;
+static unsigned char timer0_ev_pending_value;
+static unsigned char timer0_ev_enable_value;
+
+static inline unsigned int  timer0_load_read(void)                         { return timer0_load_value; }
+static inline void          timer0_load_write(unsigned int value)          {        timer0_load_value = value; }
+static inline unsigned int  timer0_reload_read(void)                       { return timer0_reload_value; }
+static inline void          timer0_reload_write(unsigned int value)        {        timer0_reload_value = value; }
+static inline unsigned char timer0_en_read(void)                           { return timer0_en_value; }
+static inline void          timer0_en_write(unsigned char value)           {        timer0_en_value = value; }
+static inline unsigned char timer0_update_value_read(void)                 { return timer0_update_value_value; }
+static inline void          timer0_update_value_write(unsigned char value) {        timer0_update_value_value = value; }
+static inline unsigned char timer0_ev_status_read(void)                    { return timer0_ev_status_value; }
+static inline void          timer0_ev_status_write(unsigned char value)    {        timer0_ev_status_value = value; }
+static inline unsigned char timer0_ev_pending_read(void)                   { return timer0_ev_pending_value; }
+static inline void          timer0_ev_pending_write(unsigned char value)   {        timer0_ev_pending_value = value; }
+static inline unsigned char timer0_ev_enable_read(void)                    { return timer0_ev_enable_value; }
+static inline void          timer0_ev_enable_write(unsigned char value)    {        timer0_ev_enable_value = value; }
+
+static inline unsigned int  timer0_value_read(void)                        { return timer0_value; }
+#endif
+
 extern void boot_helper(unsigned int r1, unsigned int r2, unsigned int r3, unsigned int addr);
 
 static void __attribute__((noreturn)) boot(unsigned int r1, unsigned int r2, unsigned int r3, unsigned int addr)
