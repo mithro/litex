@@ -101,8 +101,8 @@ class LatticeIceStormToolchain:
         ]
 
         self.build_template = [
-            "yosys -q -l {build_name}.rpt {build_name}.ys",
-            "arachne-pnr -q -l {pnr_pkg_opts} -p {build_name}.pcf {build_name}.blif -o {build_name}.txt",
+            "yosys -l {build_name}.rpt {build_name}.ys",
+            "arachne-pnr -l {pnr_pkg_opts} -p {build_name}.pcf {build_name}.blif -o {build_name}.txt",
             "icetime {icetime_pkg_opts} -c {freq_constraint} -t -p {build_name}.pcf -r {build_name}.tim {build_name}.txt",
             "icepack {build_name}.txt {build_name}.bin"
         ]
@@ -114,7 +114,7 @@ class LatticeIceStormToolchain:
         ]
 
         self.nextpnr_build_template = [
-            "yosys -q -l {build_name}.rpt {build_name}.ys",
+            "yosys -l {build_name}.rpt {build_name}.ys",
             "nextpnr-ice40 {pnr_pkg_opts} --pcf {build_name}.pcf --json {build_name}.json --asc {build_name}.txt --pre-pack {build_name}_pre_pack.py",
             "icepack {build_name}.txt {build_name}.bin"
         ]
