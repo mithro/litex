@@ -57,7 +57,7 @@ class CSRConstant(DUID):
         return self.value.value
 
 
-class CSR(_CSRBase):
+class CSR(_CSRBase, Module):
     """Basic CSR register.
 
     Parameters

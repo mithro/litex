@@ -125,9 +125,9 @@ class EventManager(Module, AutoCSR):
         sources_u = [v for k, v in xdir(self, True) if isinstance(v, _EventSource)]
         sources = sorted(sources_u, key=lambda x: x.duid)
         n = len(sources)
-        self.status = CSR(n)
-        self.pending = CSR(n)
-        self.enable = CSRStorage(n)
+        self.submodules.status = CSR(n)
+        self.submodules.pending = CSR(n)
+        self.submodules.enable = CSRStorage(n)
 
         for i, source in enumerate(sources):
             self.comb += [
