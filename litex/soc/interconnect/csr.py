@@ -154,7 +154,7 @@ class CSRStatus(_CompoundCSR):
         _CompoundCSR.__init__(self, size, name)
         self.status = Signal(self.size, reset=reset)
 
-    def do_finalize(self, busword):
+    def do_finalize(self, busword=8):
         nwords = (self.size + busword - 1)//busword
         for i in reversed(range(nwords)):
             nbits = min(self.size - i*busword, busword)
