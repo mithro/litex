@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Configuration and Status Registers
 **********************************
@@ -36,6 +37,9 @@ class _CSRBase(DUID):
         if self.name is None:
             raise ValueError("Cannot extract CSR name from code, need to specify.")
         self.size = size
+
+    def __repr__(self):
+        return "{}(name={}, ...)".format(self.__class__.__name__, self.name)
 
 
 class CSRConstant(DUID):
@@ -92,10 +96,14 @@ class CSR(_CSRBase, Module):
 
     def read(self):
         """Read method for simulation."""
-        return (yield self.w)
+        r = yield self.w
+        print(self, "read", hex(r))
+        return r
 
     def write(self, value):
         """Write method for simulation."""
+        print(self, "write", hex(value))
+        yield
         yield self.r.eq(value)
         yield self.re.eq(1)
         yield
@@ -164,7 +172,9 @@ class CSRStatus(_CompoundCSR):
 
     def read(self):
         """Read method for simulation."""
-        return (yield self.status)
+        r = yield self.status
+        print(self, "read", hex(r))
+        return r
 
 
 class CSRStorage(_CompoundCSR):
@@ -264,16 +274,21 @@ class CSRStorage(_CompoundCSR):
 
     def read(self):
         """Read method for simulation."""
-        return (yield self.storage) << self.alignment_bits
+        r = (yield self.storage) << self.alignment_bits
+        print(self, "read", hex(r))
+        return r
 
     def write(self, value):
         """Write method for simulation."""
+        print(self, "write", hex(value))
+        print(self.simple_csrs)
         for sc in reversed(self.simple_csrs):
             yield from sc.write(value)
             yield
             value = value >> sc.size
 
     def write_from_dev(self, value):
+        print(self, "write_from_dev", hex(value))
         yield self.dat_w.eq(value)
         yield self.we.eq(1)
         yield
