@@ -229,6 +229,64 @@ class TestUART(unittest.TestCase):
 
         self.assertIsInstance(uart, UARTCrossover)
 
+    def _crossover_write(self, uart, n, read_every=None):
+        # Write n bytes as libbase's polling uart_write() does (wait while txfull, then write rxtx; its
+        # IRQ-driven ring drains on the same txfull), and read the crossover side every read_every cycles
+        # (never if None). Returns (written, received).
+        written, received, done = [], [], []
+
+        def cpu():
+            for c in range(n):
+                waited = 0
+                while (yield uart._txfull.status):
+                    waited += 1
+                    if waited > 10_000:
+                        done.append(True)
+                        return
+                    yield
+                yield uart._rxtx.wr_data.eq(c)
+                yield uart._rxtx.wr_stb.eq(1)
+                yield
+                yield uart._rxtx.wr_stb.eq(0)
+                yield
+                written.append(c)
+            for _ in range(10 * n * (read_every or 1)):
+                yield
+            done.append(True)
+
+        def host():
+            cycle = 0
+            while not done:
+                if read_every and cycle % read_every == 0 and not (yield uart.xover._rxempty.status):
+                    received.append((yield uart.xover._rxtx.rd_data))
+                    yield uart.xover._rxtx.rd_stb.eq(1)
+                    yield
+                    yield uart.xover._rxtx.rd_stb.eq(0)
+                yield
+                cycle += 1
+
+        run_simulation(uart, [cpu(), host()])
+        return written, received
+
+    def test_get_uart_core_crossover_does_not_stall_the_cpu_without_a_reader(self):
+        # Nothing attached to the crossover: once its FIFOs are full, writes must not block for ever.
+        uart = get_uart_core("crossover", clk_freq=100_000)
+        written, _ = self._crossover_write(uart, 256)
+        self.assertEqual(written, list(range(256)))
+
+    def test_get_uart_core_crossover_keeps_every_byte_for_a_reader(self):
+        # A reader much slower than the CPU, but never absent for the flush timeout, loses nothing.
+        uart = get_uart_core("crossover", clk_freq=100_000)
+        written, received = self._crossover_write(uart, 256, read_every=10)
+        self.assertEqual(written, list(range(256)))
+        self.assertEqual(received, list(range(256)))
+
+    def test_crossover_without_clk_freq_still_waits_for_a_reader(self):
+        # No clk_freq, no flush: the old behaviour, where the CPU waits for the crossover side.
+        uart = get_uart_core("crossover")
+        written, _ = self._crossover_write(uart, 256)
+        self.assertLess(len(written), 256)
+
     def test_get_uart_core_builds_regular_uart(self):
         uart = get_uart_core("serial", uart_pads=UARTPads(), clk_freq=1_000_000)
 
