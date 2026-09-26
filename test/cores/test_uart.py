@@ -230,8 +230,9 @@ class TestUART(unittest.TestCase):
         self.assertIsInstance(uart, UARTCrossover)
 
     def _crossover_write(self, uart, n, read_every=None):
-        # Write n bytes as libbase's uart_write() does (wait while txfull, then write rxtx), and read the
-        # crossover side every read_every cycles (never if None). Returns (written, received).
+        # Write n bytes as libbase's polling uart_write() does (wait while txfull, then write rxtx; its
+        # IRQ-driven ring drains on the same txfull), and read the crossover side every read_every cycles
+        # (never if None). Returns (written, received).
         written, received, done = [], [], []
 
         def cpu():
