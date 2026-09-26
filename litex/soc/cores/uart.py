@@ -571,7 +571,11 @@ def get_uart_core(
 
     # Crossover.
     if uart_name in ["crossover", "crossover+uartbone"]:
-        return UARTCrossover(**uart_kwargs)
+        uart = UARTCrossover(**uart_kwargs)
+        # Nothing may be attached to the crossover side: drop TX data instead of stalling the CPU.
+        if clk_freq is not None:
+            uart.add_auto_tx_flush(sys_clk_freq=clk_freq)
+        return uart
 
     # JTAG UART.
     if uart_name in ["jtag_uart"]:
